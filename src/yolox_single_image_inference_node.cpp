@@ -15,7 +15,14 @@
 #include <rclcpp/rclcpp.hpp>
 #include <tensorrt_yolox/tensorrt_yolox.hpp>
 
+#if(defined(_MSC_VER) or (defined(__GNUC__) and (7 <= __GNUC_MAJOR__)))
 #include <filesystem>
+namespace fs = ::std::filesystem;
+#else
+#include <experimental/filesystem>
+namespace fs = ::std::experimental::filesystem;
+#endif
+
 #include <memory>
 #include <string>
 
@@ -31,7 +38,7 @@ public:
     const auto model_path = declare_parameter("model_path", "");
     const auto precision = declare_parameter("precision", "fp32");
     const auto save_image = declare_parameter("save_image", false);
-    auto p = std::filesystem::path(image_path);
+    auto p = fs::path(image_path);
     const auto ext = p.extension().string();
     p.replace_extension("");
     const auto output_image_path = declare_parameter(
