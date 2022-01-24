@@ -28,6 +28,7 @@ TrtYoloXNode::TrtYoloXNode(const rclcpp::NodeOptions & node_options)
 : Node("tensorrt_yolox", node_options)
 {
   using std::placeholders::_1;
+  using namespace std::chrono_literals;
 
   std::string model_path = declare_parameter("model_path", "");
   std::string label_path = declare_parameter("label_path", "");
@@ -39,7 +40,6 @@ TrtYoloXNode::TrtYoloXNode(const rclcpp::NodeOptions & node_options)
   }
   trt_yolox_ = std::make_unique<tensorrt_yolox::TrtYoloX>(model_path, precision);
 
-  using std::chrono_literals::operator""ms;
   timer_ = rclcpp::create_timer(
     this, get_clock(), 100ms, std::bind(&TrtYoloXNode::onConnect, this));
 

@@ -36,6 +36,7 @@ ament_target_dependencies(yolox_signle_image_inferece_node
 
 target_link_libraries(yolox_signle_image_inferece_node
   ${PROJECT_NAME}
+  stdc++fs
 )
 
 target_compile_definitions(yolox_signle_image_inferece_node PRIVATE
