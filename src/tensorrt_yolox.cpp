@@ -14,6 +14,11 @@
 
 #include <tensorrt_yolox/tensorrt_yolox.hpp>
 
+#include <NvInferRuntime.h>
+
+#include <efficientNMSPlugin.h>
+#include <scatterPlugin.h>
+
 #include <algorithm>
 #include <functional>
 #include <memory>
@@ -29,6 +34,10 @@ TrtYoloX::TrtYoloX(
 {
   trt_common_ = std::make_unique<tensorrt_common::TrtCommon>(
     model_path, precision, nullptr, batch_config, max_workspace_size);
+  auto scatter_nd_instance = nvinfer1::plugin::ScatterNDPluginCreator{};
+  auto efficient_nms_instance = nvinfer1::plugin::EfficientNMSPluginCreator{};
+  getPluginRegistry()->registerCreator(scatter_nd_instance, "");
+  getPluginRegistry()->registerCreator(efficient_nms_instance, "");
   trt_common_->setup();
 
   if (!trt_common_->isInitialized()) {
