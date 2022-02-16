@@ -26,26 +26,26 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
   TENSORRT_VERSION_MAJOR=${TENSORRT_VERSION_MAJOR}
 )
 
-ament_auto_add_library(yolox_signle_image_inferece_node SHARED
+ament_auto_add_library(yolox_single_image_inferece_node SHARED
   src/yolox_single_image_inference_node.cpp
 )
 
-ament_target_dependencies(yolox_signle_image_inferece_node
+ament_target_dependencies(yolox_single_image_inferece_node
   OpenCV
 )
 
-target_link_libraries(yolox_signle_image_inferece_node
+target_link_libraries(yolox_single_image_inferece_node
   ${PROJECT_NAME}
   stdc++fs
 )
 
-target_compile_definitions(yolox_signle_image_inferece_node PRIVATE
+target_compile_definitions(yolox_single_image_inferece_node PRIVATE
   TENSORRT_VERSION_MAJOR=${TENSORRT_VERSION_MAJOR}
 )
 
-rclcpp_components_register_node(yolox_signle_image_inferece_node
+rclcpp_components_register_node(yolox_single_image_inferece_node
   PLUGIN "tensorrt_yolox::YoloXSingleImageInferenceNode"
-  EXECUTABLE yolox_signle_image_inferece
+  EXECUTABLE yolox_single_image_inferece
 )
 
 ament_auto_add_library(${PROJECT_NAME}_node SHARED
