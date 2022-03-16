@@ -1,0 +1,15 @@
+<launch>
+  <arg name="input_topic" default="/image_raw"/>
+  <arg name="output_topic" default="rois"/>
+  <arg name="model_file" default="yolox-tiny.onnx"/>
+  <arg name="label_file" default="label.txt"/>
+  <arg name="mode" default="fp16"/>
+  <node pkg="tensorrt_yolox" exec="tensorrt_yolox_node_exe" name="$(anon tensorrt_yolox)" output="screen">
+    <remap from="~/in/image" to="$(var input_topic)" />
+    <remap from="~/out/objects" to="$(var output_topic)" />
+    <remap from="~/out/image" to="$(var output_topic)/debug/image" />
+    <param name="model_path" type="str" value="$(find-pkg-share tensorrt_yolox)/data/$(var model_file)" />
+    <param name="label_path" type="str" value="$(find-pkg-share tensorrt_yolox)/data/$(var label_file)"/>
+    <param name="mode" type="str" value="$(var mode)"/>
+  </node>
+</launch>
