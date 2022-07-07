@@ -63,8 +63,8 @@ void TrtYoloX::preprocess(const std::vector<cv::Mat> & images)
   auto input_dims = trt_common_->getBindingDimensions(0);
   input_dims.d[0] = batch_size;
   trt_common_->setBindingDimensions(0, input_dims);
-  const float input_width = static_cast<float>(input_dims.d[2]);
-  const float input_height = static_cast<float>(input_dims.d[3]);
+  const float input_height = static_cast<float>(input_dims.d[2]);
+  const float input_width = static_cast<float>(input_dims.d[3]);
   std::vector<cv::Mat> dst_images;
   scales_.clear();
   for (const auto & image : images) {
