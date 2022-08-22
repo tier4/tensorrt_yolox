@@ -102,7 +102,7 @@ bool TrtYoloX::doInference(const std::vector<cv::Mat> & images, ObjectArrays & o
   auto out_num_detections = std::make_unique<int32_t[]>(batch_size);
   auto out_boxes = std::make_unique<float[]>(4 * batch_size * max_detections_);
   auto out_scores = std::make_unique<float[]>(batch_size * max_detections_);
-  auto out_classes = std::make_unique<float[]>(batch_size * max_detections_);
+  auto out_classes = std::make_unique<int32_t[]>(batch_size * max_detections_);
 
   CHECK_CUDA_ERROR(
     cudaMemcpyAsync(
