@@ -92,10 +92,11 @@ void TrtYoloXNode::onImage(const sensor_msgs::msg::Image::ConstSharedPtr msg)
     object.feature.roi.y_offset = yolox_object.y_offset;
     object.feature.roi.width = yolox_object.width;
     object.feature.roi.height = yolox_object.height;
+    object.object.existence_probability = yolox_object.score;
     object.object.classification.emplace_back(
       autoware_auto_perception_msgs::build<Label>()
       .label(Label::UNKNOWN)
-      .probability(yolox_object.score));
+      .probability(1.0));
     if (label_map_[yolox_object.type] == "CAR") {
       object.object.classification.front().label = Label::CAR;
     } else if (label_map_[yolox_object.type] == "PEDESTRIAN") {
