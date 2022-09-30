@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(tensorrt_yolox)
+project(ailia_yolox)
 
 if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 17)
@@ -15,57 +15,31 @@ ament_auto_find_build_dependencies()
 find_package(OpenCV REQUIRED)
 
 ament_auto_add_library(${PROJECT_NAME} SHARED
-  src/tensorrt_yolox.cpp
+  src/ailia_yolox.cpp
 )
-
+target_link_libraries(${PROJECT_NAME}
+  ${CMAKE_SOURCE_DIR}/lib/libailia.so
+  ${CMAKE_SOURCE_DIR}/lib/libailia_cuda-8.so
+)
+target_include_directories(${PROJECT_NAME}
+  PUBLIC include/ailia
+)
 ament_target_dependencies(${PROJECT_NAME}
   OpenCV
 )
 
-target_compile_definitions(${PROJECT_NAME} PRIVATE
-  TENSORRT_VERSION_MAJOR=${TENSORRT_VERSION_MAJOR}
-)
-
-ament_auto_add_library(yolox_single_image_inferece_node SHARED
-  src/yolox_single_image_inference_node.cpp
-)
-
-ament_target_dependencies(yolox_single_image_inferece_node
-  OpenCV
-)
-
-target_link_libraries(yolox_single_image_inferece_node
-  ${PROJECT_NAME}
-  stdc++fs
-)
-
-target_compile_definitions(yolox_single_image_inferece_node PRIVATE
-  TENSORRT_VERSION_MAJOR=${TENSORRT_VERSION_MAJOR}
-)
-
-rclcpp_components_register_node(yolox_single_image_inferece_node
-  PLUGIN "tensorrt_yolox::YoloXSingleImageInferenceNode"
-  EXECUTABLE yolox_single_image_inferece
-)
-
 ament_auto_add_library(${PROJECT_NAME}_node SHARED
-  src/tensorrt_yolox_node.cpp
+  src/ailia_yolox_node.cpp
 )
-
 ament_target_dependencies(${PROJECT_NAME}_node
   OpenCV
 )
-
 target_link_libraries(${PROJECT_NAME}_node
   ${PROJECT_NAME}
 )
 
-target_compile_definitions(${PROJECT_NAME}_node PRIVATE
-  TENSORRT_VERSION_MAJOR=${TENSORRT_VERSION_MAJOR}
-)
-
 rclcpp_components_register_node(${PROJECT_NAME}_node
-  PLUGIN "tensorrt_yolox::TrtYoloXNode"
+  PLUGIN "ailia_yolox::AiliaYoloXNode"
   EXECUTABLE ${PROJECT_NAME}_node_exe
 )
 

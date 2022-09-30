@@ -1,18 +1,4 @@
-// Copyright 2022 Tier IV, Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-#include <tensorrt_yolox/tensorrt_yolox_node.hpp>
+#include <ailia_yolox/ailia_yolox_node.hpp>
 
 #include <autoware_auto_perception_msgs/msg/object_classification.hpp>
 
@@ -21,27 +7,60 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <map>
 
-namespace tensorrt_yolox
+namespace ailia_yolox
 {
-TrtYoloXNode::TrtYoloXNode(const rclcpp::NodeOptions & node_options)
-: Node("tensorrt_yolox", node_options)
+AiliaYoloXNode::AiliaYoloXNode(const rclcpp::NodeOptions & node_options)
+: Node("ailia_yolox", node_options)
 {
   using std::placeholders::_1;
   using namespace std::chrono_literals;
+  const static std::map<std::string,int> algo_list{
+    {"yolox", AILIA_DETECTOR_ALGORITHM_YOLOX},
+    {"yolov4", AILIA_DETECTOR_ALGORITHM_YOLOV4},
+  };
 
   std::string model_path = declare_parameter("model_path", "");
+  std::string weight_path = declare_parameter("weight_path", "");
   std::string label_path = declare_parameter("label_path", "");
   std::string precision = declare_parameter("precision", "fp32");
+  std::string algorithm = declare_parameter("algorithm", "");
+
+  if(algo_list.find(algorithm) == algo_list.end()){
+      auto iter = algo_list.begin();
+      std::string keys = iter->first;
+      iter++;
+      for (; iter != algo_list.end(); iter++) {
+        keys += ", " + iter->first;
+      }
+      RCLCPP_ERROR(this->get_logger(), "Undefined algorithm \"%s\", Please select from [%s]", algorithm.c_str(), keys.c_str());
+      rclcpp::shutdown();
+      return;
+  }
+  const int algorithm_ = algo_list.at(algorithm);
+
+  RCLCPP_INFO(this->get_logger(), "model_path: %s", model_path.c_str());
+  RCLCPP_INFO(this->get_logger(), "weight_path: %s", weight_path.c_str());
+  RCLCPP_INFO(this->get_logger(), "label_path: %s", label_path.c_str());
+  RCLCPP_INFO(this->get_logger(), "precision: %s", precision.c_str());
+  RCLCPP_INFO(this->get_logger(), "algorithm: %s", algorithm.c_str());
 
   if (!readLabelFile(label_path)) {
     RCLCPP_ERROR(this->get_logger(), "Could not find label file");
     rclcpp::shutdown();
   }
-  trt_yolox_ = std::make_unique<tensorrt_yolox::TrtYoloX>(model_path, precision);
+
+  ailia_yolox_ = std::make_unique<ailia_yolox::AiliaYoloX>(model_path, weight_path, precision, label_map_.size(), algorithm_, AILIA_ENVIRONMENT_ID_AUTO);
+  RCLCPP_INFO(this->get_logger(), "Ailia version: %s", ailia_yolox_->GetAiliaVersion().c_str());
+  if(ailia_yolox_->HasError()){
+    RCLCPP_ERROR(this->get_logger(), "Ailia initialize failed.");
+    RCLCPP_ERROR(this->get_logger(), "%s", ailia_yolox_->GetErrorDescription().c_str());
+  }
+  RCLCPP_INFO(this->get_logger(), "%s", ailia_yolox_->GetEnvironmentName().c_str());
 
   timer_ = rclcpp::create_timer(
-    this, get_clock(), 100ms, std::bind(&TrtYoloXNode::onConnect, this));
+    this, get_clock(), 1000ms, std::bind(&AiliaYoloXNode::onConnect, this));
 
   objects_pub_ =
     this->create_publisher<tier4_perception_msgs::msg::DetectedObjectsWithFeature>(
@@ -49,7 +68,7 @@ TrtYoloXNode::TrtYoloXNode(const rclcpp::NodeOptions & node_options)
   image_pub_ = image_transport::create_publisher(this, "~/out/image");
 }
 
-void TrtYoloXNode::onConnect()
+void AiliaYoloXNode::onConnect()
 {
   using std::placeholders::_1;
   if (objects_pub_->get_subscription_count() == 0 &&
@@ -59,13 +78,13 @@ void TrtYoloXNode::onConnect()
     image_sub_.shutdown();
   } else if (!image_sub_) {
     image_sub_ = image_transport::create_subscription(
-      this, "~/in/image", std::bind(&TrtYoloXNode::onImage, this, _1), "raw",
+      this, "~/in/image", std::bind(&AiliaYoloXNode::onImage, this, _1), "raw",
       rmw_qos_profile_sensor_data
     );
   }
 }
 
-void TrtYoloXNode::onImage(const sensor_msgs::msg::Image::ConstSharedPtr msg)
+void AiliaYoloXNode::onImage(const sensor_msgs::msg::Image::ConstSharedPtr msg)
 {
   using Label = autoware_auto_perception_msgs::msg::ObjectClassification;
 
@@ -81,9 +100,10 @@ void TrtYoloXNode::onImage(const sensor_msgs::msg::Image::ConstSharedPtr msg)
   const auto width = in_image_ptr->image.cols;
   const auto height = in_image_ptr->image.rows;
 
-  tensorrt_yolox::ObjectArrays objects;
-  if (!trt_yolox_->doInference({in_image_ptr->image}, objects)) {
+  ailia_yolox::ObjectArrays objects;
+  if (!ailia_yolox_->doInference({in_image_ptr->image}, objects)) {
     RCLCPP_WARN(this->get_logger(), "Fail to inference");
+    RCLCPP_WARN(this->get_logger(), "%s", ailia_yolox_->GetErrorDescription().c_str());
     return;
   }
   for (const auto & yolox_object : objects.at(0)) {
@@ -126,7 +146,7 @@ void TrtYoloXNode::onImage(const sensor_msgs::msg::Image::ConstSharedPtr msg)
   objects_pub_->publish(out_objects);
 }
 
-bool TrtYoloXNode::readLabelFile(const std::string & label_path)
+bool AiliaYoloXNode::readLabelFile(const std::string & label_path)
 {
   std::ifstream label_file(label_path);
   if (!label_file.is_open()) {
@@ -142,7 +162,7 @@ bool TrtYoloXNode::readLabelFile(const std::string & label_path)
   return true;
 }
 
-}  // namespace tensorrt_yolox
+}  // namespace ailia_yolox
 
 #include "rclcpp_components/register_node_macro.hpp"
-RCLCPP_COMPONENTS_REGISTER_NODE(tensorrt_yolox::TrtYoloXNode)
+RCLCPP_COMPONENTS_REGISTER_NODE(ailia_yolox::AiliaYoloXNode)
