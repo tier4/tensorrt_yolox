@@ -33,12 +33,21 @@ TrtYoloXNode::TrtYoloXNode(const rclcpp::NodeOptions & node_options)
   std::string model_path = declare_parameter("model_path", "");
   std::string label_path = declare_parameter("label_path", "");
   std::string precision = declare_parameter("precision", "fp32");
+  // Objects with a score lower than this value will be ignored.
+  // This threshold will be ignored if specified model contains EfficientNMS_TRT module in it
+  float score_threshold = declare_parameter("score_threshold", 0.3);
+  // Detection results will be ignored if IoU over this value.
+  // This threshold will be ignored if specified model contains EfficientNMS_TRT module in it
+  float nms_threshold = declare_parameter("nms_threshold", 0.7);
 
   if (!readLabelFile(label_path)) {
     RCLCPP_ERROR(this->get_logger(), "Could not find label file");
     rclcpp::shutdown();
   }
-  trt_yolox_ = std::make_unique<tensorrt_yolox::TrtYoloX>(model_path, precision);
+  trt_yolox_ = std::make_unique<tensorrt_yolox::TrtYoloX>(
+    model_path, precision,
+    label_map_.size(), score_threshold,
+    nms_threshold);
 
   timer_ = rclcpp::create_timer(
     this, get_clock(), 100ms, std::bind(&TrtYoloXNode::onConnect, this));
