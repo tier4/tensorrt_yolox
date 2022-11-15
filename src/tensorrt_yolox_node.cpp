@@ -44,9 +44,10 @@ TrtYoloXNode::TrtYoloXNode(const rclcpp::NodeOptions & node_options)
     RCLCPP_ERROR(this->get_logger(), "Could not find label file");
     rclcpp::shutdown();
   }
-  trt_yolox_ = std::make_unique<tensorrt_yolox::TrtYoloX>(model_path, precision,
-                                                          label_map_.size(), score_threshold,
-                                                          nms_threshold);
+  trt_yolox_ = std::make_unique<tensorrt_yolox::TrtYoloX>(
+    model_path, precision,
+    label_map_.size(), score_threshold,
+    nms_threshold);
 
   timer_ = rclcpp::create_timer(
     this, get_clock(), 100ms, std::bind(&TrtYoloXNode::onConnect, this));

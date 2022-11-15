@@ -72,7 +72,7 @@ TrtYoloX::TrtYoloX(
     const auto output_dims = trt_common_->getBindingDimensions(1);
     input_d_ = cuda_utils::make_unique<float[]>(batch_config[2] * input_size);
     out_elem_num_ = std::accumulate(
-        output_dims.d + 1, output_dims.d + output_dims.nbDims, 1, std::multiplies<int>());
+      output_dims.d + 1, output_dims.d + output_dims.nbDims, 1, std::multiplies<int>());
     out_elem_num_per_batch_ = static_cast<int>(out_elem_num_ / batch_config[2]);
     out_prob_d_ = cuda_utils::make_unique<float[]>(out_elem_num_);
     out_prob_h_ = cuda_utils::make_unique_host<float[]>(out_elem_num_, cudaHostAllocPortable);
@@ -141,8 +141,9 @@ bool TrtYoloX::doInference(const std::vector<cv::Mat> & images, ObjectArrays & o
 
 // This method is assumed to be called when specified YOLOX model contains
 // EfficientNMS_TRT module.
-bool TrtYoloX::feedforward(const std::vector<cv::Mat> &images,
-                           ObjectArrays &objects)
+bool TrtYoloX::feedforward(
+  const std::vector<cv::Mat> & images,
+  ObjectArrays & objects)
 {
   std::vector<void *> buffers = {
     input_d_.get(), out_num_detections_d_.get(), out_boxes_d_.get(),
@@ -200,26 +201,27 @@ bool TrtYoloX::feedforward(const std::vector<cv::Mat> &images,
   return true;
 }
 
-bool TrtYoloX::feedforwardAndDecode(const std::vector<cv::Mat> &images,
-                                    ObjectArrays &objects)
+bool TrtYoloX::feedforwardAndDecode(
+  const std::vector<cv::Mat> & images,
+  ObjectArrays & objects)
 {
   std::vector<void *> buffers = {input_d_.get(), out_prob_d_.get()};
 
   trt_common_->enqueueV2(buffers.data(), *stream_, nullptr);
 
-  const auto batch_size= images.size();
+  const auto batch_size = images.size();
 
   CHECK_CUDA_ERROR(
-      cudaMemcpyAsync(
-          out_prob_h_.get(), out_prob_d_.get(),
-          sizeof(float) * out_elem_num_, cudaMemcpyDeviceToHost,
-          *stream_));
+    cudaMemcpyAsync(
+      out_prob_h_.get(), out_prob_d_.get(),
+      sizeof(float) * out_elem_num_, cudaMemcpyDeviceToHost,
+      *stream_));
   cudaStreamSynchronize(*stream_);
   objects.clear();
 
   for (size_t i = 0; i < batch_size; ++i) {
     auto image_size = images[i].size();
-    float* batch_prob = out_prob_h_.get() + (i * out_elem_num_per_batch_);
+    float * batch_prob = out_prob_h_.get() + (i * out_elem_num_per_batch_);
     ObjectArray object_array;
     decodeOutputs(batch_prob, object_array, scales_[i], image_size);
     objects.emplace_back(object_array);
@@ -227,7 +229,9 @@ bool TrtYoloX::feedforwardAndDecode(const std::vector<cv::Mat> &images,
   return true;
 }
 
-void TrtYoloX::decodeOutputs(float* prob, ObjectArray &objects, float scale, cv::Size& img_size) const
+void TrtYoloX::decodeOutputs(
+  float * prob, ObjectArray & objects, float scale,
+  cv::Size & img_size) const
 {
   ObjectArray proposals;
   auto input_dims = trt_common_->getBindingDimensions(0);
@@ -267,9 +271,10 @@ void TrtYoloX::decodeOutputs(float* prob, ObjectArray &objects, float scale, cv:
   }
 }
 
-void TrtYoloX::generateGridsAndStride(const int target_w, const int target_h,
-                                      std::vector<int> &strides,
-                                      std::vector<GridAndStride> &grid_strides) const
+void TrtYoloX::generateGridsAndStride(
+  const int target_w, const int target_h,
+  std::vector<int> & strides,
+  std::vector<GridAndStride> & grid_strides) const
 {
   for (auto stride : strides) {
     int num_grid_w = target_w / stride;
@@ -282,10 +287,11 @@ void TrtYoloX::generateGridsAndStride(const int target_w, const int target_h,
   }
 }
 
-void TrtYoloX::generateYoloxProposals(std::vector<GridAndStride> grid_strides,
-                                      float* feat_blob,
-                                      float prob_threshold,
-                                      ObjectArray &objects) const
+void TrtYoloX::generateYoloxProposals(
+  std::vector<GridAndStride> grid_strides,
+  float * feat_blob,
+  float prob_threshold,
+  ObjectArray & objects) const
 {
   const int num_anchors = grid_strides.size();
 
@@ -299,14 +305,14 @@ void TrtYoloX::generateYoloxProposals(std::vector<GridAndStride> grid_strides,
     // yolox/models/yolo_head.py decode logic
     // To apply this logic, YOLOX head must output raw value
     // (i.e., `decode_in_inference` should be False)
-    float x_center = (feat_blob[basic_pos+0] + grid0) * stride;
-    float y_center = (feat_blob[basic_pos+1] + grid1) * stride;
-    float w = exp(feat_blob[basic_pos+2]) * stride;
-    float h = exp(feat_blob[basic_pos+3]) * stride;
+    float x_center = (feat_blob[basic_pos + 0] + grid0) * stride;
+    float y_center = (feat_blob[basic_pos + 1] + grid1) * stride;
+    float w = exp(feat_blob[basic_pos + 2]) * stride;
+    float h = exp(feat_blob[basic_pos + 3]) * stride;
     float x0 = x_center - w * 0.5f;
     float y0 = y_center - h * 0.5f;
 
-    float box_objectness = feat_blob[basic_pos+4];
+    float box_objectness = feat_blob[basic_pos + 4];
     for (int class_idx = 0; class_idx < num_class_; class_idx++) {
       float box_cls_score = feat_blob[basic_pos + 5 + class_idx];
       float box_prob = box_objectness * box_cls_score;
@@ -321,23 +327,26 @@ void TrtYoloX::generateYoloxProposals(std::vector<GridAndStride> grid_strides,
 
         objects.push_back(obj);
       }
-    } // class loop
-  } // point anchor loop
+    }  // class loop
+  }  // point anchor loop
 }
 
-void TrtYoloX::qsortDescentInplace(ObjectArray &faceobjects, int left,
-                                   int right) const
+void TrtYoloX::qsortDescentInplace(
+  ObjectArray & faceobjects, int left,
+  int right) const
 {
   int i = left;
   int j = right;
   float p = faceobjects[(left + right) / 2].score;
 
   while (i <= j) {
-    while (faceobjects[i].score > p)
+    while (faceobjects[i].score > p) {
       i++;
+    }
 
-    while (faceobjects[j].score < p)
+    while (faceobjects[j].score < p) {
       j--;
+    }
 
     if (i <= j) {
       // swap
@@ -352,20 +361,23 @@ void TrtYoloX::qsortDescentInplace(ObjectArray &faceobjects, int left,
   {
 #pragma omp section
     {
-      if (left < j)
+      if (left < j) {
         qsortDescentInplace(faceobjects, left, j);
+      }
     }
 #pragma omp section
     {
-      if (i < right)
+      if (i < right) {
         qsortDescentInplace(faceobjects, i, right);
+      }
     }
   }
 }
 
-void TrtYoloX::nmsSortedBboxes(const ObjectArray &faceobjects,
-                               std::vector<int> &picked,
-                               float nms_threshold) const
+void TrtYoloX::nmsSortedBboxes(
+  const ObjectArray & faceobjects,
+  std::vector<int> & picked,
+  float nms_threshold) const
 {
   picked.clear();
   const int n = faceobjects.size();
@@ -373,27 +385,29 @@ void TrtYoloX::nmsSortedBboxes(const ObjectArray &faceobjects,
   std::vector<float> areas(n);
   for (int i = 0; i < n; i++) {
     cv::Rect rect(faceobjects[i].x_offset, faceobjects[i].y_offset,
-                  faceobjects[i].width, faceobjects[i].height);
+      faceobjects[i].width, faceobjects[i].height);
     areas[i] = rect.area();
   }
 
   for (int i = 0; i < n; i++) {
-    const Object &a = faceobjects[i];
+    const Object & a = faceobjects[i];
 
     int keep = 1;
     for (int j = 0; j < (int)picked.size(); j++) {
-      const Object &b = faceobjects[picked[j]];
+      const Object & b = faceobjects[picked[j]];
 
       // intersection over union
       float inter_area = intersectionArea(a, b);
       float union_area = areas[i] + areas[picked[j]] - inter_area;
       // float IoU = inter_area / union_area
-      if (inter_area / union_area > nms_threshold)
+      if (inter_area / union_area > nms_threshold) {
         keep = 0;
+      }
     }
 
-    if (keep)
+    if (keep) {
       picked.push_back(i);
+    }
   }
 }
 
